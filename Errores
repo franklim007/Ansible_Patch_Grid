@@ -13,3 +13,135 @@ OPATCHAUTO-72083: Fix the reported problem and re-run opatchauto. In case of sta
         at com.oracle.glcm.patch.auto.db.util.BootstrapHandler.main(BootstrapHandler.java:98)
  
 perl patching initializaion failed with error code 255.
+
+root@ ~]# /oragrid/app/product/19.0.0/grid/OPatch/opatchauto apply -phBaseDir /instalacion_oracle/parches  -binary -oh /oragrid/app/product/19.0.0/grid -analyze
+ 
+OPatchauto -binary is not supported as 'root' user. Please run as 'oragrid' user.
+
+opatchauto returns with error code = 2
+
+[root@ ~]#
+
+ 
+oragrid:+ASM1:/instalacion_oracle/parches #> opatchauto apply -phBaseDir /instalacion_oracle/parches  -binary  -analyze
+ 
+New Perl session is going to be started using /oragrid/app/product/19.0.0/grid/opatchautocfg/db/dbtmp/bootstrap_ld4nglorefxi01/perl/bin/perl
+
+INFO: "PatchSearch.xml" under /instalacion_oracle/parches is not a valid patch location.
+
+Oracle Home : /oragrid/app/product/19.0.0/grid
+ 
+OPatchAuto binary patching Tool
+
+Copyright (c)2014, Oracle Corporation. All rights reserved.
+ 
+OPatchauto Version : 13.9.5.0.0
+
+Running from       : /oragrid/app/product/19.0.0/grid
+ 
+opatchauto log file: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/opatchauto_2026-04-15_16-25-11_binary.log
+ 
+Patch selected: /instalacion_oracle/parches/37860476
+ 
+ 
+Patch selected: /instalacion_oracle/parches/37957391
+ 
+ 
+Analysing this list of patches :
+
+[/instalacion_oracle/parches/37860476, /instalacion_oracle/parches/37957391/37962946, /instalacion_oracle/parches/37957391/37962938, /instalacion_oracle/parches/37957391/36758186, /instalacion_oracle/parches/37957391/38124772, /instalacion_oracle/parches/37957391/37960098] ...
+ 
+Analysis completed.
+ 
+ 
+==Following patches FAILED in analysis for apply:
+ 
+Patch: /instalacion_oracle/parches/37860476
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: Failed during Analysis: CheckPatchApplicable Failed, [ Prerequisite Status: FAILED, Prerequisite output:
+
+The details are:
+ 
+Patch 37860476:
+
+DeleteAction : Destination File "/oragrid/app/product/19.0.0/grid/jdk/bin/ControlPanel" is not writeable.
+
+'oracle.jdk, 1.8.0.201.0': Cannot delete file '/oragrid/app/product/19.0.0/grid/jdk/bin/ControlPanel'
+
+DeleteAction : Destination File "/oragrid/app/product/19.0.0/grid/jdk/bin/appletviewer" is not writeable.
+
+'oracle.jdk, 1.8.0.201.0': Cannot delete file  ...
+ 
+Patch: /instalacion_oracle/parches/37957391/37962946
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: Failed during Analysis: CheckPatchApplicable Failed, [ Prerequisite Status: FAILED, Prerequisite output:
+
+The details are:
+ 
+Patch 37962946:
+
+Copy Action: Destination File "/oragrid/app/product/19.0.0/grid/jlib/ghctl.jar" is not writable or does not have correct permissions
+
+File permissions of "/oragrid/app/product/19.0.0/grid/jlib/ghctl.jar" are:
+
+-rw-r--r-- 1 root dba 248221 Jul 15  2025 /oragrid/app/product/19.0.0/grid/jlib/ghctl.jar
+ 
+'oracle.rhp.common, 19.0.0.0.0': Cannot copy file from 'ghc ...
+ 
+Patch: /instalacion_oracle/parches/37957391/37962938
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: Failed during Analysis: CheckPatchApplicable Failed, [ Prerequisite Status: FAILED, Prerequisite output:
+
+The details are:
+ 
+Patch 37962938:
+
+Copy Action: Destination File "/oragrid/app/product/19.0.0/grid/bin/acfscm" is not writable or does not have correct permissions
+
+File permissions of "/oragrid/app/product/19.0.0/grid/bin/acfscm" are:
+
+-rwxr-xr-x 1 root dba 458056 Jul 15  2025 /oragrid/app/product/19.0.0/grid/bin/acfscm
+ 
+'oracle.usm, 19.0.0.0.0': Cannot copy file from 'acfscm' to '/oragrid/a ...
+ 
+Patch: /instalacion_oracle/parches/37957391/37960098
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: Failed during Analysis: CheckPatchApplicable Failed, [ Prerequisite Status: FAILED, Prerequisite output:
+
+The details are:
+ 
+Patch 37960098:
+
+Copy Action: Destination File "/oragrid/app/product/19.0.0/grid/bin/orapki" is not writable or does not have correct permissions
+
+File permissions of "/oragrid/app/product/19.0.0/grid/bin/orapki" are:
+
+-rwxr-xr-x 1 root dba 4656 Jul 13  2024 /oragrid/app/product/19.0.0/grid/bin/orapki
+ 
+'oracle.ldap.owm, 19.0.0.0.0': Cannot copy file from 'orapki' to '/oragri ...
+ 
+ 
+==Following patches were SKIPPED:
+ 
+Patch: /instalacion_oracle/parches/37957391/36758186
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: /instalacion_oracle/parches/37957391/36758186 is not required to be applied to oracle home /oragrid/app/product/19.0.0/grid
+ 
+Patch: /instalacion_oracle/parches/37957391/38124772
+
+Log: /oragrid/app/product/19.0.0/grid/cfgtoollogs/opatchauto/core/opatch/opatch2026-04-15_16-25-13PM_1.log
+
+Reason: /instalacion_oracle/parches/37957391/38124772 is not required to be applied to oracle home /oragrid/app/product/19.0.0/grid
+ 
+ 
+opatchauto FAILED on some patches.
