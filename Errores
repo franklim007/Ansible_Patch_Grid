@@ -1,3 +1,108 @@
+Problema real (claro y directo)
+
+Todos los errores dicen lo mismo:
+
+Destination File ... is not writable
+owner: root
+
+👉 Ejemplo:
+
+/oragrid/app/product/19.0.0/grid/jlib/ghctl.jar
+-rw-r--r-- 1 root dba
+🎯 Traducción sin ruido
+
+👉 Estás ejecutando como oragrid, PERO:
+
+Hay ficheros del GRID_HOME que son de root
+oragrid no puede escribir/modificar
+opatchauto necesita hacerlo → falla en analyze
+⚠️ Esto es importante (nivel senior)
+
+Esto NO es normal en un Grid Infrastructure sano.
+
+👉 En un GI correcto:
+
+owner: oragrid
+grupo: oinstall (o similar)
+root solo toca cosas vía root scripts
+
+👉 Aquí tienes mezcla → típico de:
+
+instalación antigua
+parche previo mal aplicado
+cambio manual de permisos
+✅ Solución (la buena, no parche rápido)
+✔️ Paso 1 — Verifica el desastre real
+find /oragrid/app/product/19.0.0/grid ! -user oragrid | head -20
+
+👉 Vas a ver muchos archivos como root
+
+✔️ Paso 2 — Arreglar ownership (clave)
+
+👉 Esto es lo que necesitas hacer:
+
+chown -R oragrid:oinstall /oragrid/app/product/19.0.0/grid
+
+⚠️ Ajusta grupo si usas dba en vez de oinstall
+
+✔️ Paso 3 — Permisos coherentes
+chmod -R u+rwX /oragrid/app/product/19.0.0/grid
+✔️ Paso 4 — Reintentar analyze
+opatchauto apply -phBaseDir /instalacion_oracle/parches -binary -analyze
+🧠 Insight importante (esto te hace subir nivel)
+
+Has visto esto:
+
+opatchauto -binary is not supported as 'root'
+
+👉 Correcto:
+
+opatchauto debe correr como owner del home (oragrid)
+PERO:
+los binarios deben ser modificables por ese usuario
+
+👉 Tu problema era incoherencia entre ambos mundos
+
+🚀 Resultado esperado tras fix
+
+Después del chown:
+
+desaparecen TODOS los:
+not writable
+cannot copy
+cannot delete
+
+Y el analyze debería pasar limpio o con warnings menores
+
+💡 Recomendación de alto nivel (muy importante)
+
+Antes de aplicar en serio:
+
+opatchauto apply ... -analyze
+
+👉 Y cuando pase:
+
+opatchauto apply ...
+🔥 Si quieres hacerlo fino (pro de verdad)
+
+Después del fix, valida:
+
+$GRID_HOME/OPatch/opatch lsinventory
+
+👉 Si esto falla → aún hay problemas de ownership
+
+🧭 Conclusión clara
+
+No estás bloqueado por Oracle.
+Estás en una situación clásica de:
+
+👉 "Grid Home con ownership inconsistente"
+
+Lo bueno:
+✔ Fácil de arreglar
+✔ Sin riesgo si lo haces ahora (antes del apply real)
+
+===============================================================================================================================
 oragrid #> opatchauto apply /instalacion_oracle -id "37957391,37860476" -oh /oragrid/app/product/19.0.0/grid -binary -analyze
 OPATCHAUTO-72083: Performing bootstrap operations failed.
 OPATCHAUTO-72083: The bootstrap execution failed because OPATCHAUTO-72146: Failed to load patch
