@@ -1,0 +1,215 @@
+---
+# =============================================================================
+# Playbook : gi_patch — Parcheo Grid Infrastructure con opatchauto
+# Entorno  : preprod_dbs (2 nodos RAC)
+# Parches  : patch1_id + patch2_id definidos en inventory
+# Ejecución: ansible-playbook site.yml
+#            ansible-playbook site.yml --tags precheck   (solo análisis)
+#            ansible-playbook site.yml --tags apply      (apply + post-check)
+# =============================================================================
+- name: Parcheo Grid Infrastructure — opatchauto (dos parches)
+  hosts: preprod_dbs
+  gather_facts: true
+  serial: 1
+  become: true
+  become_user: root
+
+  tasks:
+
+    # ── PREPARACIÓN ──────────────────────────────────────────────────────────
+    - name: Crear directorios de log y stage en el nodo
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ log_dir }}"
+        - "{{ stage_dir }}"
+      tags: [always]
+
+    - name: Verificar que GI_HOME existe
+      ansible.builtin.stat:
+        path: "{{ gi_home }}/OPatch/opatchauto"
+      register: opatchauto_stat
+      tags: [always]
+
+    - name: Abortar si opatchauto no se encuentra
+      ansible.builtin.fail:
+        msg: "No se encuentra opatchauto en {{ gi_home }}/OPatch/opatchauto — revisar gi_home en inventario"
+      when: not opatchauto_stat.stat.exists
+      tags: [always]
+
+    - name: Verificar que los ZIPs/directorios de parches existen en stage
+      ansible.builtin.shell: |
+        ls -d {{ stage_dir }}/{{ patch1_id }} {{ stage_dir }}/{{ patch2_id }} 2>/dev/null || \
+        ls {{ stage_dir }}/p{{ patch1_id }}*.zip {{ stage_dir }}/p{{ patch2_id }}*.zip 2>/dev/null
+      register: patches_exist
+      failed_when: patches_exist.rc != 0
+      changed_when: false
+      tags: [always]
+
+    # ── GENERACIÓN Y COPIA DEL SCRIPT ────────────────────────────────────────
+    - name: Generar script de parcheo desde template
+      ansible.builtin.template:
+        src: templates/gi_patch.sh.j2
+        dest: /tmp/gi_patch_{{ inventory_hostname }}.sh
+        mode: '0700'
+        owner: root
+      tags: [always]
+
+    # ── PRE-CHECK (analyze) ──────────────────────────────────────────────────
+    - name: Ejecutar pre-check opatchauto (analyze)
+      ansible.builtin.shell: |
+        {{ opatchauto }} apply {{ stage_dir }} \
+          -id "{{ patch1_id }},{{ patch2_id }}" \
+          -oh {{ gi_home }} \
+          -analyze \
+          -binary
+      register: precheck_out
+      changed_when: false
+      failed_when: precheck_out.rc != 0
+      tags: [precheck, apply]
+
+    - name: Mostrar resultado del pre-check
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ precheck_out.stdout_lines }}"
+      tags: [precheck, apply]
+
+    - name: Mostrar errores del pre-check (si los hay)
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ precheck_out.stderr_lines }}"
+      when: precheck_out.stderr_lines | length > 0
+      tags: [precheck, apply]
+
+    # ── ESTADO CRS PREVIO ────────────────────────────────────────────────────
+    - name: Estado del cluster CRS antes del parcheo
+      ansible.builtin.shell: |
+        {{ gi_home }}/bin/crsctl stat res -t
+      register: crs_pre
+      changed_when: false
+      tags: [apply]
+
+    - name: Mostrar estado CRS pre-parcheo
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ crs_pre.stdout_lines }}"
+      tags: [apply]
+
+    # ── LSPATCHES PREVIO ─────────────────────────────────────────────────────
+    - name: Listar parches aplicados en GI_HOME (antes)
+      ansible.builtin.shell: |
+        {{ gi_home }}/OPatch/opatch lspatches -oh {{ gi_home }}
+      register: lspatches_pre
+      changed_when: false
+      tags: [apply]
+
+    - name: Mostrar lspatches pre-parcheo
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ lspatches_pre.stdout_lines }}"
+      tags: [apply]
+
+    # ── APLICACIÓN DE PARCHES ────────────────────────────────────────────────
+    - name: Aplicar parches con opatchauto ({{ patch1_id }}, {{ patch2_id }})
+      ansible.builtin.shell: |
+        {{ opatchauto }} apply {{ stage_dir }} \
+          -id "{{ patch1_id }},{{ patch2_id }}" \
+          -oh {{ gi_home }} \
+          -binary
+      register: apply_out
+      failed_when: apply_out.rc != 0
+      tags: [apply]
+
+    - name: Mostrar salida del apply
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ apply_out.stdout_lines }}"
+      tags: [apply]
+
+    - name: Mostrar stderr del apply (si lo hay)
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ apply_out.stderr_lines }}"
+      when: apply_out.stderr_lines | length > 0
+      tags: [apply]
+
+    # ── POST-CHECK: LSPATCHES ────────────────────────────────────────────────
+    - name: Listar parches aplicados en GI_HOME (después)
+      ansible.builtin.shell: |
+        {{ gi_home }}/OPatch/opatch lspatches -oh {{ gi_home }}
+      register: lspatches_post
+      changed_when: false
+      tags: [apply]
+
+    - name: Mostrar lspatches post-parcheo
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ lspatches_post.stdout_lines }}"
+      tags: [apply]
+
+    - name: Verificar que patch1 ({{ patch1_id }}) aparece en lspatches
+      ansible.builtin.fail:
+        msg: "ERROR: El parche {{ patch1_id }} NO aparece en lspatches tras el apply"
+      when: patch1_id not in lspatches_post.stdout
+      tags: [apply]
+
+    - name: Verificar que patch2 ({{ patch2_id }}) aparece en lspatches
+      ansible.builtin.fail:
+        msg: "ERROR: El parche {{ patch2_id }} NO aparece en lspatches tras el apply"
+      when: patch2_id not in lspatches_post.stdout
+      tags: [apply]
+
+    - name: "OK: Ambos parches verificados en lspatches"
+      ansible.builtin.debug:
+        msg: "Parches {{ patch1_id }} y {{ patch2_id }} presentes en GI_HOME tras el apply."
+      tags: [apply]
+
+    # ── POST-CHECK: ESTADO CRS ───────────────────────────────────────────────
+    - name: Estado del cluster CRS después del parcheo
+      ansible.builtin.shell: |
+        {{ gi_home }}/bin/crsctl stat res -t
+      register: crs_post
+      changed_when: false
+      tags: [apply]
+
+    - name: Mostrar estado CRS post-parcheo
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ crs_post.stdout_lines }}"
+      tags: [apply]
+
+    - name: Versión activa del clusterware
+      ansible.builtin.shell: |
+        {{ gi_home }}/bin/crsctl query crs activeversion
+        {{ gi_home }}/bin/crsctl query crs softwareversion
+      register: crs_version
+      changed_when: false
+      tags: [apply]
+
+    - name: Mostrar versión CRS post-parcheo
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      with_items: "{{ crs_version.stdout_lines }}"
+      tags: [apply]
+
+    # ── LIMPIEZA ─────────────────────────────────────────────────────────────
+    - name: Eliminar script temporal del nodo
+      ansible.builtin.file:
+        path: /tmp/gi_patch_{{ inventory_hostname }}.sh
+        state: absent
+      tags: [always]
+
+    # ── RESUMEN FINAL ────────────────────────────────────────────────────────
+    - name: Resumen del parcheo
+      ansible.builtin.debug:
+        msg:
+          - "==========================================="
+          - "Nodo       : {{ inventory_hostname }}"
+          - "GI_HOME    : {{ gi_home }}"
+          - "Parche 1   : {{ patch1_id }} — OK"
+          - "Parche 2   : {{ patch2_id }} — OK"
+          - "Finalizado : {{ ansible_date_time.iso8601 }}"
+          - "==========================================="
+      tags: [apply]
